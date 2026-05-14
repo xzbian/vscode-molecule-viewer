@@ -1,0 +1,76 @@
+{
+  "name": "structure-viewer",
+  "displayName": "Structure Viewer",
+  "description": "Interactive 3D visualization of molecular structure files (XYZ, POSCAR, LAMMPS data, extended XYZ) with trajectory playback and unit cell wireframe.",
+  "version": "1.0.0",
+  "publisher": "xb7635",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xb7635/vscode-structure-viewer"
+  },
+  "homepage": "https://github.com/xb7635/vscode-structure-viewer",
+  "bugs": {
+    "url": "https://github.com/xb7635/vscode-structure-viewer/issues"
+  },
+  "keywords": [
+    "molecular",
+    "structure",
+    "visualization",
+    "chemistry",
+    "xyz",
+    "poscar",
+    "lammps",
+    "trajectory",
+    "3d"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Data Science",
+    "Scientific"
+  ],
+  "activationEvents": [
+    "onCommand:structureViewer.open"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "structureViewer.open",
+        "title": "Structure Viewer: Open Current File"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "structureViewer.open",
+          "group": "navigation",
+          "when": "resourceExtname =~ /\\.(xyz|extxyz|vasp|lmp|data)$/i || resourceFilename =~ /^(POSCAR|CONTCAR)$/i"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "structureViewer.open",
+          "group": "navigation",
+          "when": "resourceExtname =~ /\\.(xyz|extxyz|vasp|lmp|data)$/i || resourceFilename =~ /^(POSCAR|CONTCAR)$/i"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.2"
+  },
+  "dependencies": {
+    "ngl": "^2.4.0"
+  }
+}

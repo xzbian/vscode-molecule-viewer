@@ -1,0 +1,26 @@
+# Source files (not needed in vsix, we have compiled JS)
+src/
+tsconfig.json
+*.ts
+
+# Build cache
+.vscode/
+
+# Development dependencies
+node_modules/
+*.log
+
+# Git
+.git
+.gitignore
+
+# Test/example files  
+examples/
+*.test.*
+
+# Docs (optional - remove if you want them in vsix)
+README.md
+LICENSE
+
+# System
+.DS_Store
