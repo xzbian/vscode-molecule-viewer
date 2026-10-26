@@ -6,8 +6,9 @@ tsconfig.json
 # Build cache
 .vscode/
 
-# Development dependencies
-node_modules/
+# Development dependencies (but KEEP ngl!)
+node_modules/*
+!node_modules/ngl/
 *.log
 
 # Git

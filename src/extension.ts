@@ -11,7 +11,12 @@ function detectFormat(uri: vscode.Uri): SupportedFormat | undefined {
   if (lower.endsWith(".xyz")) {
     return "xyz";
   }
-  if (lower === "poscar" || lower === "contcar" || lower.endsWith(".vasp")) {
+  if (
+    lower === "poscar" ||
+    lower === "contcar" ||
+    lower === "xdatcar" ||
+    lower.endsWith(".vasp")
+  ) {
     return "poscar";
   }
   if (lower.endsWith(".data") || lower.endsWith(".lmp")) {

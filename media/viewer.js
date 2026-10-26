@@ -32,25 +32,31 @@
 
   function wrapToUnitCell(atoms, cellVectors) {
     if (!cellVectors) return atoms;
-    
+    const inv = matrixInverse3x3(cellVectors);
+
     return atoms.map((atom) => {
-      const inv = matrixInverse3x3(cellVectors);
+      // Lattice vectors are stored as rows, so Cartesian coordinates are
+      // multiplied by the inverse on the right.
       const frac = [
-        inv[0][0] * atom.x + inv[0][1] * atom.y + inv[0][2] * atom.z,
-        inv[1][0] * atom.x + inv[1][1] * atom.y + inv[1][2] * atom.z,
-        inv[2][0] * atom.x + inv[2][1] * atom.y + inv[2][2] * atom.z
+        atom.x * inv[0][0] + atom.y * inv[1][0] + atom.z * inv[2][0],
+        atom.x * inv[0][1] + atom.y * inv[1][1] + atom.z * inv[2][1],
+        atom.x * inv[0][2] + atom.y * inv[1][2] + atom.z * inv[2][2]
       ];
 
       frac[0] = frac[0] - Math.floor(frac[0]);
       frac[1] = frac[1] - Math.floor(frac[1]);
       frac[2] = frac[2] - Math.floor(frac[2]);
 
-      const cartX = frac[0] * cellVectors[0][0] + frac[1] * cellVectors[1][0] + frac[2] * cellVectors[2][0];
-      const cartY = frac[0] * cellVectors[0][1] + frac[1] * cellVectors[1][1] + frac[2] * cellVectors[2][1];
-      const cartZ = frac[0] * cellVectors[0][2] + frac[1] * cellVectors[1][2] + frac[2] * cellVectors[2][2];
-
-      return { ...atom, x: cartX, y: cartY, z: cartZ };
+      return { ...atom, ...fractionalToCartesian(frac, cellVectors) };
     });
+  }
+
+  function fractionalToCartesian(frac, cellVectors) {
+    return {
+      x: frac[0] * cellVectors[0][0] + frac[1] * cellVectors[1][0] + frac[2] * cellVectors[2][0],
+      y: frac[0] * cellVectors[0][1] + frac[1] * cellVectors[1][1] + frac[2] * cellVectors[2][1],
+      z: frac[0] * cellVectors[0][2] + frac[1] * cellVectors[1][2] + frac[2] * cellVectors[2][2]
+    };
   }
 
   function matrixInverse3x3(m) {
@@ -186,54 +192,124 @@
     return parsedFrames;
   }
 
-  function parsePoscar(text) {
-    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
-    if (lines.length < 8) {
-      throw new Error("Invalid POSCAR format.");
+  function parseVaspHeader(lines) {
+    if (lines.length < 7) {
+      throw new Error("Invalid VASP structure header.");
     }
 
-    const scaling = Number.parseFloat(lines[1]);
-    const cellVectors = [];
-    for (let i = 0; i < 3; i++) {
+    const scaleValue = Number.parseFloat(lines[1]);
+    if (!Number.isFinite(scaleValue) || scaleValue === 0) {
+      throw new Error("Invalid VASP lattice scaling factor.");
+    }
+
+    const rawCell = [];
+    for (let i = 0; i < 3; i += 1) {
       const parts = lines[2 + i].split(/\s+/).map(Number);
-      cellVectors.push([parts[0] * scaling, parts[1] * scaling, parts[2] * scaling]);
+      if (parts.length < 3 || parts.slice(0, 3).some((value) => !Number.isFinite(value))) {
+        throw new Error("Invalid VASP lattice vector.");
+      }
+      rawCell.push(parts.slice(0, 3));
     }
 
-    const elementNames = lines[5].split(/\s+/);
-    const elementCounts = lines[6].split(/\s+/).map((x) => Number.parseInt(x, 10));
-    const coordType = lines[7].toUpperCase();
+    let scale = scaleValue;
+    if (scaleValue < 0) {
+      const volume = Math.abs(
+        rawCell[0][0] * (rawCell[1][1] * rawCell[2][2] - rawCell[1][2] * rawCell[2][1]) -
+        rawCell[0][1] * (rawCell[1][0] * rawCell[2][2] - rawCell[1][2] * rawCell[2][0]) +
+        rawCell[0][2] * (rawCell[1][0] * rawCell[2][1] - rawCell[1][1] * rawCell[2][0])
+      );
+      if (volume === 0) {
+        throw new Error("VASP lattice vectors have zero volume.");
+      }
+      scale = Math.cbrt(Math.abs(scaleValue) / volume);
+    }
 
-    const isDirect = coordType.startsWith("D");
+    const cellVectors = rawCell.map((vector) => vector.map((value) => value * scale));
+    const elementOrCountLine = lines[5].split(/\s+/);
+    const hasElements = elementOrCountLine.some((value) => !Number.isInteger(Number.parseFloat(value)));
+    const elementNames = hasElements
+      ? elementOrCountLine
+      : elementOrCountLine.map((_, index) => `Element${index + 1}`);
+    const countLineIndex = hasElements ? 6 : 5;
+    const elementCounts = lines[countLineIndex].split(/\s+/).map((value) => Number.parseInt(value, 10));
+    if (
+      elementCounts.length === 0 ||
+      elementCounts.some((count) => !Number.isInteger(count) || count < 0) ||
+      elementCounts.length !== elementNames.length
+    ) {
+      throw new Error("Invalid VASP element counts.");
+    }
+
+    return {
+      cellVectors,
+      coordinateScale: scale,
+      elementNames,
+      elementCounts,
+      coordinateStart: countLineIndex + 1
+    };
+  }
+
+  function parseVaspAtoms(lines, startIndex, header, isDirect) {
+    let lineIdx = startIndex;
+    if (lines[lineIdx]?.toUpperCase().startsWith("S")) {
+      lineIdx += 1;
+    }
+
     const atoms = [];
-    let lineIdx = 8;
-
-    elementNames.forEach((element, elemIdx) => {
-      const count = elementCounts[elemIdx] || 0;
-      for (let i = 0; i < count; i++) {
-        if (lineIdx >= lines.length) break;
-        const parts = lines[lineIdx].split(/\s+/).map(Number);
-        let x = parts[0], y = parts[1], z = parts[2];
-
-        if (isDirect) {
-          const cartX = x * cellVectors[0][0] + y * cellVectors[1][0] + z * cellVectors[2][0];
-          const cartY = x * cellVectors[0][1] + y * cellVectors[1][1] + z * cellVectors[2][1];
-          const cartZ = x * cellVectors[0][2] + y * cellVectors[1][2] + z * cellVectors[2][2];
-          x = cartX;
-          y = cartY;
-          z = cartZ;
+    header.elementNames.forEach((element, elementIndex) => {
+      for (let atomIndex = 0; atomIndex < header.elementCounts[elementIndex]; atomIndex += 1) {
+        const parts = lines[lineIdx]?.split(/\s+/).map(Number);
+        if (!parts || parts.length < 3 || parts.slice(0, 3).some((value) => !Number.isFinite(value))) {
+          throw new Error("Invalid VASP coordinate line.");
         }
-
-        atoms.push({ element, x, y, z });
+        const coordinates = isDirect
+          ? fractionalToCartesian(parts, header.cellVectors)
+          : {
+            x: parts[0] * header.coordinateScale,
+            y: parts[1] * header.coordinateScale,
+            z: parts[2] * header.coordinateScale
+          };
+        atoms.push({ element, ...coordinates });
         lineIdx += 1;
       }
     });
+    return atoms;
+  }
 
-    if (atoms.length === 0) {
-      throw new Error("No atoms found in POSCAR.");
+  function parsePoscar(text) {
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+    const header = parseVaspHeader(lines);
+    const coordinateLine = lines[header.coordinateStart]?.toUpperCase() ?? "";
+    if (coordinateLine.startsWith("DIRECT CONFIGURATION")) {
+      const parsedFrames = [];
+      let lineIdx = header.coordinateStart;
+      while (lineIdx < lines.length) {
+        if (!lines[lineIdx].toUpperCase().startsWith("DIRECT CONFIGURATION")) {
+          lineIdx += 1;
+          continue;
+        }
+        lineIdx += 1;
+        const atoms = parseVaspAtoms(lines, lineIdx, header, true);
+        parsedFrames.push({ atoms: wrapToUnitCell(atoms, header.cellVectors), cell: header.cellVectors });
+        lineIdx += header.elementCounts.reduce((sum, count) => sum + count, 0);
+      }
+      if (parsedFrames.length === 0) {
+        throw new Error("No VASP trajectory frames found.");
+      }
+      return parsedFrames;
     }
 
-    const wrappedAtoms = wrapToUnitCell(atoms, cellVectors);
-    return [{ atoms: wrappedAtoms, cell: cellVectors }];
+    if (!coordinateLine.startsWith("D") && !coordinateLine.startsWith("C") && !coordinateLine.startsWith("K")) {
+      throw new Error("Invalid POSCAR format.");
+    }
+    const atoms = parseVaspAtoms(
+      lines,
+      header.coordinateStart + 1,
+      header,
+      coordinateLine.startsWith("D")
+    );
+    if (atoms.length === 0) throw new Error("No atoms found in POSCAR.");
+    return [{ atoms: wrapToUnitCell(atoms, header.cellVectors), cell: header.cellVectors }];
   }
 
   const ATOMIC_MASSES = {

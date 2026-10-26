@@ -7,7 +7,7 @@ Interactive 3D visualization of molecular structures with trajectory playback. O
 ✨ **Supported Formats**
 - **XYZ** (.xyz) - Multi-frame trajectories with play/pause and frame slider
 - **Extended XYZ** (.extxyz) - With lattice information for periodic structures
-- **POSCAR/CONTCAR** - VASP format with automatic fractional-to-Cartesian conversion
+- **POSCAR/CONTCAR/XDATCAR** - VASP structures and MD trajectories, including fractional coordinates
 - **LAMMPS Data** (.lmp, .data) - With interactive atom type mapping
 
 📦 **Structure Visualization**
@@ -65,8 +65,10 @@ Same as XYZ but with lattice info in comment:
 Lattice="ax ay az bx by bz cx cy cz"
 ```
 
-### POSCAR (VASP)
-Standard VASP POSCAR format with lattice vectors and atomic coordinates.
+### POSCAR/CONTCAR/XDATCAR (VASP)
+VASP structures support direct (fractional) and Cartesian coordinates, non-orthogonal
+lattice vectors, selective-dynamics lines, negative volume scaling, and XDATCAR
+multi-frame MD trajectories.
 
 ### LAMMPS Data (.lmp, .data)
 When opening a LAMMPS file, a dialog appears to map atom types to elements:
@@ -85,10 +87,13 @@ When opening a LAMMPS file, a dialog appears to map atom types to elements:
 Try these example files included in the repository:
 ```bash
 examples/
-├── example.xyz          # Water molecule trajectory
-├── POSCAR              # CaCO₃ structure with unit cell
-├── conf.lmp            # LAMMPS structure
-└── example.extxyz      # Extended XYZ with lattice
+├── POSCAR               # CaCO₃ structure with unit cell
+├── nonorthogonal.vasp   # Triclinic cell with fractional coordinates
+├── XDATCAR              # Two-frame fractional-coordinate VASP trajectory
+├── conf.lmp             # LAMMPS structure
+├── frame.xyz            # Single-frame XYZ structure
+├── traj.xyz             # Multi-frame XYZ trajectory
+└── periodic.extxyz      # Extended XYZ with lattice
 ```
 
 ## Requirements
@@ -106,7 +111,8 @@ examples/
 
 **"Unsupported file" error**
 - Ensure file has correct extension (.xyz, .extxyz, .lmp, .data, or POSCAR)
-- Check file is not corrupted
+- Check file is not corrupted. VASP MD trajectories should use the standard `XDATCAR`
+  filename (or a supported `.vasp` filename).
 
 **Atoms not visible**
 - Try double-clicking in the viewport to reset camera (autoView)
