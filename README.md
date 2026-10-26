@@ -25,17 +25,7 @@ Interactive 3D visualization of molecular structures with trajectory playback. O
 🔧 **Smart Element Detection**
 - For LAMMPS files: Auto-detects elements from atomic masses in Masses section
 - User-configurable mapping for atom types → chemical elements (C, O, N, H, etc.)
-
-## Installation
-
-1. Open VS Code Extensions marketplace
-2. Search for "Structure Viewer"
-3. Click Install
-
-Or install directly:
-```bash
-code --install-extension xb7635.structure-viewer
-```
+ 
 
 ## Usage
 
