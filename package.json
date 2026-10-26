@@ -2,7 +2,7 @@
   "name": "structure-viewer",
   "displayName": "Structure Viewer",
   "description": "Interactive 3D visualization of molecular structure files (XYZ, POSCAR, LAMMPS data, extended XYZ) with trajectory playback and unit cell wireframe.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "xb7635",
   "license": "MIT",
   "repository": {

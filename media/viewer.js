@@ -253,6 +253,10 @@
     let lineIdx = startIndex;
     if (lines[lineIdx]?.toUpperCase().startsWith("S")) {
       lineIdx += 1;
+      if (lines[lineIdx]?.toUpperCase().startsWith("D") ||
+          lines[lineIdx]?.toUpperCase().startsWith("C")) {
+        lineIdx += 1;
+      }
     }
 
     const atoms = [];
@@ -279,7 +283,10 @@
   function parsePoscar(text) {
     const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
     const header = parseVaspHeader(lines);
-    const coordinateLine = lines[header.coordinateStart]?.toUpperCase() ?? "";
+    const coordinateIndex = lines[header.coordinateStart]?.toUpperCase().startsWith("S")
+      ? header.coordinateStart + 1
+      : header.coordinateStart;
+    const coordinateLine = lines[coordinateIndex]?.toUpperCase() ?? "";
     if (coordinateLine.startsWith("DIRECT CONFIGURATION")) {
       const parsedFrames = [];
       let lineIdx = header.coordinateStart;
@@ -304,7 +311,7 @@
     }
     const atoms = parseVaspAtoms(
       lines,
-      header.coordinateStart + 1,
+      header.coordinateStart,
       header,
       coordinateLine.startsWith("D")
     );
